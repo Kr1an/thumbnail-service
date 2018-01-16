@@ -1,5 +1,3 @@
-const JobRequest = require('./jobRequest');
-
 module.exports = {
-  JobRequest,
+  JobRequest: require('./jobRequest'),
 };

@@ -16,9 +16,12 @@
     "express": "^4.16.2",
     "express-fileupload": "^0.3.0",
     "express-logger": "0.0.3",
+    "express-logging": "^1.1.1",
+    "logops": "^2.1.0",
     "mongoose": "^4.13.9",
     "nodemon": "^1.14.11",
     "request": "^2.83.0",
+    "request-promise": "^4.2.2",
     "sharp": "^0.18.4",
     "uuid": "^3.1.0"
   }
