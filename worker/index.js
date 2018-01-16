@@ -24,26 +24,22 @@ function startUp() {
             ch.assertQueue('', { exclusive: true }, function (err, q) {
                 ch.bindQueue(q.queue, ex, '');
                 ch.consume(q.queue, async function(msg) {
-                    const msgObj = JSON.parse(JSON.parse(msg.content));
-                    console.log(`reqeusting image from ${msgObj.imageUrl}`)
-                    const image = request(msgObj.imageUrl)
+                    const msgObj = JSON.parse(msg.content);
+                    console.log(`reqeusting image from ${msgObj.url}`)
+                    const image = request(msgObj.url)
                         .pipe(
                             sharp()
                                 .resize(64, 64)
                                 .png()
-                                
+
                         )
-                    
-                    // console.log("---------")
-                    // console.log(image)
-                    // return
                     let file;
                     try {
                         file = await image.toFile(`${msgObj.id}.png`);
                     } catch (e) {
                         console.log("Error while transforming file: ")
                         console.log(e);
-                        request(request.post(`http://api:3000/jobrequests/${msgObj.id}`, (err, res) => {}))                 
+                        request(request.post(`http://api:3000/jobrequests/${msgObj.id}`, (err, res) => {}))
                         return
                     }
                     const req = request.post(`http://api:3000/jobrequests/${msgObj.id}`, (err, res) => {
