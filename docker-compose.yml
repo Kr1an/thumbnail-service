@@ -1,0 +1,36 @@
+version: '3.3'
+
+services:
+  mongodb:
+    image: mongo:latest
+    ports:
+        - 27117:27017
+  api:
+    build: .
+    hostname: api
+    command: ../node_modules/.bin/nodemon .
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/opt/app
+    links:
+      - mongodb
+      - rabbit
+  worker:
+    build: .
+    command: ../node_modules/.bin/nodemon worker/index.js
+    ports:
+      - "3001:3000"
+    volumes:
+      - .:/opt/app
+    links:
+      - rabbit
+    depends_on:
+      - rabbit
+      - api
+  rabbit:
+    image: "rabbitmq:latest"
+    hostname: "rabbit"
+    ports:
+      - "5673:5672"
+
