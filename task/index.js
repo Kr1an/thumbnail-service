@@ -1,19 +1,10 @@
-var amqp = require('amqplib/callback_api');
+const amqp = require('amqplib');
 
-const sendTask = (message) => {
-    amqp.connect('amqp://rabbit', function(err, conn) {
-    console.log(err);
-    conn.createChannel(function(err, ch) {
-        var ex = 'sw';
-        var msg = JSON.stringify(message);
-        ch.assertExchange(ex, 'direct', { durable: true });
-        ch.publish(ex, '', new Buffer(msg));
-        console.log(" [x] Sent '%s'", msg);   
-    });
-    setTimeout(function() { conn.close() }, 500);
-    });
+async function messageWorker(id, url) {
+  const conn = await amqp.connect('amqp://rabbit');
+  const ch = await conn.createChannel();
+  ch.assertExchange('sw', 'direct', { durable: true })
+  ch.publish('sw', '', new Buffer(JSON.stringify({ id, url })));
 }
 
-module.exports = {
-    sendTask,
-}
+module.exports = messageWorker;

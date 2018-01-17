@@ -1,61 +1,68 @@
-const amqp = require('amqplib/callback_api');
-const request = require('request');
-const fs = require('fs');
-const sharp = require('sharp');
-const INTERVAL_DELAY = 2000;
-const startUpInterval = setInterval(startUp, INTERVAL_DELAY);
-const resizer = sharp()
-    .resize(64, 64)
-    .png()
+const
+  amqp    = require('amqplib'),
+  request = require('request-promise'),
+  fs      = require('fs'),
+  sharp   = require('sharp'),
+    logger      = require('logops');
 
-function startUp() {
-    amqp.connect('amqp://rabbit', function(err, conn) {
-        if (conn) {
-            console.log('Rabbit conn setted up.');
-            clearInterval(startUpInterval);
-        } else {
-            console.log(`Rabbit conn failed. Will repeat  in ${INTERVAL_DELAY} ms.`)
-            console.log(`Error Desc: ${err}`)
-            return
-        }
-        conn.createChannel(function(err, ch) {
-            const ex = 'sw';
-            ch.assertExchange(ex, 'direct', { durable: true });
-            ch.assertQueue('', { exclusive: true }, function (err, q) {
-                ch.bindQueue(q.queue, ex, '');
-                ch.consume(q.queue, async function(msg) {
-                    const msgObj = JSON.parse(JSON.parse(msg.content));
-                    console.log(`reqeusting image from ${msgObj.imageUrl}`)
-                    const image = request(msgObj.imageUrl)
-                        .pipe(
-                            sharp()
-                                .resize(64, 64)
-                                .png()
-                                
-                        )
-                    
-                    // console.log("---------")
-                    // console.log(image)
-                    // return
-                    let file;
-                    try {
-                        file = await image.toFile(`${msgObj.id}.png`);
-                    } catch (e) {
-                        console.log("Error while transforming file: ")
-                        console.log(e);
-                        request(request.post(`http://api:3000/jobrequests/${msgObj.id}`, (err, res) => {}))                 
-                        return
-                    }
-                    const req = request.post(`http://api:3000/jobrequests/${msgObj.id}`, (err, res) => {
-                        if (!err) {
-                            fs.unlinkSync(`${msgObj.id}.png`);
-                        }
-                    });
-                    const form = req.form();
-                    form.append('file', fs.createReadStream(`${msgObj.id}.png`));
-                }, { noAck: true })
-            })
-            ch.prefetch(1);
-        });
-    });
+const
+  INTERVAL_DELAY      = 2000,
+  JOBS_CNT_PER_WORKER = 1,
+  EXCHANGER_NAME      = 'sw';
+
+const
+  startUpInterval = setInterval(startUp, INTERVAL_DELAY),
+  fileGen         = id => `${id}.png`;
+  tmpFileGen      = id => `${id}.tmp`
+  makePostWithId  = id => (options = {}) => request.post({
+    uri: `http://api:3000/jobrequests/${id}`,
+    ...options,
+  });
+
+async function messageHandler(msg) {
+  const {
+    id,
+    url,
+  } = JSON.parse(msg.content);
+  try {
+    const res = await request({ url, encoding: null })
+
+    fs.writeFileSync(tmpFileGen(id), res);
+
+    await sharp(tmpFileGen(id))
+      .resize(64, 64)
+      .png()
+      .toFile(fileGen(id))
+    await makePostWithId(id)({
+      formData: {
+        file: fs.createReadStream(fileGen(id)),
+      }
+    })
+  } catch (e) {
+    logger.error(e.toString());
+    await makePostWithId(id)();
+  }
+  fs.unlinkSync(fileGen(id));
+  fs.unlinkSync(tmpFileGen(id));
+}
+
+async function startUp() {
+  const conn = await amqp.connect('amqp://rabbit')
+  if (conn) {
+    clearInterval(startUpInterval);
+  }
+
+  const ch = await conn.createChannel();
+  const q = await ch.assertQueue('', { exclusive: true });
+
+  ch.assertExchange(EXCHANGER_NAME, 'direct', { durable: true });
+  ch.bindQueue(q.queue, EXCHANGER_NAME, '');
+  ch.prefetch(JOBS_CNT_PER_WORKER)
+  ch.consume(q.queue, messageHandler, { noAck: true });
+}
+
+module.exports = {
+  startUp,
+  messageHandler,
+  makePostWithId,
 }
