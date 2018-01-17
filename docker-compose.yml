@@ -5,6 +5,15 @@ services:
     image: mongo:latest
     ports:
         - 27117:27017
+  tests:
+    build: .
+    hostname: tests
+    volumes:
+      - .:/opt/app
+    links:
+      - mongodb
+      - rabbit
+      - api
   api:
     build: .
     hostname: api

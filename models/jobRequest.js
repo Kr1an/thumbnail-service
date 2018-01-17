@@ -1,8 +1,9 @@
 const mongoose = require('mongoose');
 
-module.exports = mongoose.model(
+const JobRequest = mongoose.model(
   'JobRequest',
   new mongoose.Schema({
+    thumbnailUrl: String,
     url: {
       type: String,
       required: true,
@@ -16,6 +17,7 @@ module.exports = mongoose.model(
       ],
       default: 'pending',
     },
-    thumbnailUrl: String,
   }),
 );
+
+module.exports = JobRequest;

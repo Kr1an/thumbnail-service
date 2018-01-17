@@ -2,7 +2,7 @@ FROM node:latest
 
 RUN mkdir -p /opt/app
 
-ARG NODE_ENV=production
+ARG NODE_ENV=dev
 ENV NODE_ENV $NODE_ENV
 
 ARG PORT=80
